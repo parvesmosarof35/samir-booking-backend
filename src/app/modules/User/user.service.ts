@@ -701,6 +701,21 @@ const updateUserStatusInActiveToActive = async (id: string) => {
       updatedAt: true,
     },
   });
+
+  // send welcome mail
+  const html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2>Welcome ${result.fullName} 🎉</h2>
+      <p>Your account has been successfully activated by the admin.</p>
+      <p>You can now login and enjoy our services.</p>
+      <br/>
+      <p>Best Regards,</p>
+      <p><strong>Support Team</strong></p>
+    </div>
+  `;
+
+  await emailSender("Welcome! Your Account is Now Active", result.email, html);
+
   return result;
 };
 
@@ -736,6 +751,21 @@ const updateUserStatusInActiveToRejected = async (id: string) => {
       updatedAt: true,
     },
   });
+
+  // send rejection mail
+  const html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2>Hello ${result.fullName},</h2>
+      <p>We regret to inform you that your account request has been rejected.</p>
+      <p>If you believe this was a mistake or need further clarification, please contact our support team.</p>
+      <br/>
+      <p>Best Regards,</p>
+      <p><strong>Support Team</strong></p>
+    </div>
+  `;
+
+  await emailSender("Account Application Update", result.email, html);
+
   return result;
 };
 
