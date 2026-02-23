@@ -363,6 +363,60 @@ const getAllUsers = async (
   };
 };
 
+// get all inactive service providers
+const getAllInactiveServiceProviders = async (
+  options: IPaginationOptions,
+): Promise<IGenericResponse<SafeUser[]>> => {
+  const { limit, page, skip } = paginationHelpers.calculatedPagination(options);
+
+  const result = await prisma.user.findMany({
+    where: {
+      role: UserRole.SERVICE_PROVIDER,
+      status: UserStatus.INACTIVE,
+    },
+    skip,
+    take: limit,
+    orderBy:
+      options.sortBy && options.sortOrder
+        ? {
+            [options.sortBy]: options.sortOrder,
+          }
+        : {
+            createdAt: "desc",
+          },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      profileImage: true,
+      contactNumber: true,
+      address: true,
+      country: true,
+      role: true,
+      fcmToken: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  const total = await prisma.user.count({
+    where: {
+      role: UserRole.SERVICE_PROVIDER,
+      status: UserStatus.INACTIVE,
+    },
+  });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data: result,
+  };
+};
+
 // get all property owners
 const getAllPropertyOwners = async (
   params: IFilterRequest,
@@ -622,7 +676,7 @@ const updateUserStatusInActiveToActive = async (id: string) => {
     where: { id, status: UserStatus.INACTIVE },
   });
   if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Admin not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
   }
 
   const result = await prisma.user.update({
@@ -631,6 +685,41 @@ const updateUserStatusInActiveToActive = async (id: string) => {
     },
     data: {
       status: UserStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      profileImage: true,
+      contactNumber: true,
+      address: true,
+      country: true,
+      role: true,
+      fcmToken: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  return result;
+};
+
+// update  user status access admin (inactive to rejected)
+const updateUserStatusInActiveToRejected = async (id: string) => {
+  // find user
+  const user = await prisma.user.findUnique({
+    where: { id, status: UserStatus.INACTIVE },
+  });
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  const result = await prisma.user.update({
+    where: {
+      id,
+    },
+    data: {
+      status: UserStatus.REJECTED,
     },
     select: {
       id: true,
@@ -842,11 +931,13 @@ export const UserService = {
   createServiceProvider,
   createRoleSupperAdmin,
   verifyOtpAndCreateUser,
+  getAllUsers,
+  getAllInactiveServiceProviders,
   getAllPropertyOwners,
   getAllBlockedUsers,
-  getAllUsers,
   updateUserStatusActiveToInActive,
   updateUserStatusInActiveToActive,
+  updateUserStatusInActiveToRejected,
   getUserById,
   getAllAdmins,
   updateUser,

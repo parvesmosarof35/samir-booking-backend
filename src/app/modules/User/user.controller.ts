@@ -89,6 +89,22 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// get all inactive service providers
+const getAllInactiveServiceProviders = catchAsync(
+  async (req: Request, res: Response) => {
+    const options = pick(req.query, paginationFields);
+
+    const result = await UserService.getAllInactiveServiceProviders(options);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Service Providers fetched successfully",
+      data: result,
+    });
+  },
+);
+
 // get all property owners
 const getAllPropertyOwners = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, filterField);
@@ -139,7 +155,21 @@ const updateUserStatusInActiveToActive = catchAsync(
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,
-      message: "Admin status updated successfully",
+      message: "User status updated successfully",
+      data: result,
+    });
+  },
+);
+
+// update  user status access admin (inactive to rejected)
+const updateUserStatusInActiveToRejected = catchAsync(
+  async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const result = await UserService.updateUserStatusInActiveToRejected(id);
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "User status updated successfully",
       data: result,
     });
   },
@@ -260,10 +290,12 @@ export const UserController = {
   createRoleSupperAdmin,
   verifyOtpAndCreateUser,
   getAllUsers,
+  getAllInactiveServiceProviders,
   getAllPropertyOwners,
   getAllBlockedUsers,
   updateUserStatusActiveToInActive,
   updateUserStatusInActiveToActive,
+  updateUserStatusInActiveToRejected,
   getUserById,
   getAllAdmins,
   updateUser,

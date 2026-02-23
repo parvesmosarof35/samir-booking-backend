@@ -19,6 +19,13 @@ router.get(
   UserController.getAllUsers,
 );
 
+// get all inactive service providers
+router.get(
+  "/inactive/service-providers",
+  auth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  UserController.getAllInactiveServiceProviders,
+);
+
 // get all property owners
 router.get(
   "/property-owners",
@@ -103,6 +110,13 @@ router.patch(
   "/update-user-status-active/:id",
   auth(UserRole.SUPER_ADMIN, UserRole.ADMIN),
   UserController.updateUserStatusInActiveToActive,
+);
+
+// update  user status access admin (inactive to rejected)
+router.patch(
+  "/update-user-status-active/:id",
+  auth(UserRole.SUPER_ADMIN, UserRole.ADMIN),
+  UserController.updateUserStatusInActiveToRejected,
 );
 
 // single update user (info + profile image)
