@@ -114,7 +114,7 @@ router.patch(
 
 // update  user status access admin (inactive to rejected)
 router.patch(
-  "/update-user-status-active/:id",
+  "/update-user-status-rejected/:id",
   auth(UserRole.SUPER_ADMIN, UserRole.ADMIN),
   UserController.updateUserStatusInActiveToRejected,
 );
