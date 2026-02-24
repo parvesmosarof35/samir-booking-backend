@@ -8,8 +8,16 @@ const createHotelReview = async (
   userId: string,
   hotelId: string,
   rating: number,
-  comment?: string
+  comment?: string,
 ) => {
+  // rating validation (1 - 5 only)
+  if (rating < 1 || rating > 5) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Rating must be between 1 and 5",
+    );
+  }
+
   // check if user exists
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -78,8 +86,16 @@ const createServiceReview = async (
   userId: string,
   serviceId: string,
   rating: number,
-  comment?: string
+  comment?: string,
 ) => {
+  // rating validation (1 - 5 only)
+  if (rating < 1 || rating > 5) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Rating must be between 1 and 5",
+    );
+  }
+
   // check if user exists
   const user = await prisma.user.findUnique({
     where: { id: userId },
