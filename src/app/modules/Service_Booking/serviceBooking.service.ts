@@ -23,23 +23,25 @@ const createServiceBooking = async (
   serviceId: string,
   data: ICreateServiceBooking,
 ) => {
-  // find user
+  // -------------------- FIND USER --------------------
   const findUser = await prisma.user.findUnique({
     where: { id: userId, status: UserStatus.ACTIVE },
   });
+
   if (!findUser) {
     throw new ApiError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  // find hotel
+  // -------------------- FIND HOTEL --------------------
   const findHotel = await prisma.hotel.findUnique({
-    where: { id: data?.hotelId },
+    where: { id: data.hotelId },
   });
+
   if (!findHotel) {
     throw new ApiError(httpStatus.NOT_FOUND, "Hotel not found");
   }
 
-  // find service
+  // -------------------- FIND SERVICE --------------------
   const findService = await prisma.service.findUnique({
     where: { id: serviceId },
     include: {
@@ -50,6 +52,7 @@ const createServiceBooking = async (
       },
     },
   });
+
   if (!findService) {
     throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
   }
@@ -61,77 +64,133 @@ const createServiceBooking = async (
     );
   }
 
-  // validate that the booking date is not in the past
+  // -------------------- DATE VALIDATION --------------------
   const bookingDate = new Date(data.date);
+
+  if (isNaN(bookingDate.getTime())) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking date");
+  }
+
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+  today.setHours(0, 0, 0, 0);
 
   if (bookingDate < today) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Cannot book for past dates. Please select a future date.",
+      "Cannot book for past dates",
     );
   }
 
-  // check if the requested date and day is available
+  // 🔥 DO NOT TRUST FRONTEND DAY
+  const actualDay = bookingDate.toLocaleDateString("en-US", {
+    weekday: "long",
+  });
+
+  // -------------------- FIND AVAILABILITY --------------------
   const availability = findService.availability.find(
-    (avail: any) => avail.day.toLowerCase() === data.day.toLowerCase(),
+    (avail: any) =>
+      avail.day.trim().toLowerCase() === actualDay.toLowerCase(),
   );
+
   if (!availability) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Service is not available on ${data.day}`,
+      `Service is not available on ${actualDay}`,
     );
   }
-  // console.log("availability", availability);
 
-  // check if the requested time slot is available
-  const isTimeSlotAvailable = availability.slots.some(
-    (slot: any) =>
-      slot.from.replace(/\s+/g, " ").trim() ===
-        data.timeSlot.from.replace(/\s+/g, " ").trim() &&
-      slot.to.replace(/\s+/g, " ").trim() ===
-        data.timeSlot.to.replace(/\s+/g, " ").trim(),
-  );
-  // console.log("isTimeSlotAvailable", isTimeSlotAvailable);
-  if (!isTimeSlotAvailable) {
+  // -------------------- TIME PARSER --------------------
+  const parseTime = (time: string) => {
+    const clean = time.replace(/\s+/g, " ").trim().toUpperCase();
+
+    const match = clean.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/);
+    if (!match) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Invalid time format: ${time}`,
+      );
+    }
+
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const modifier = match[3];
+
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const requestStart = parseTime(data.timeSlot.from);
+  const requestEnd = parseTime(data.timeSlot.to);
+
+  if (requestEnd <= requestStart) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Requested time slot is not available",
+      "Invalid time range selected",
+    );
+  };
+  
+
+  // -------------------- CHECK SLOT RANGE --------------------
+  const isWithinAvailableRange = availability.slots.some((slot: any) => {
+    const slotStart = parseTime(slot.from);
+    const slotEnd = parseTime(slot.to);
+
+    return requestStart >= slotStart && requestEnd <= slotEnd;
+  });
+
+  if (!isWithinAvailableRange) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Requested time slot is outside available range",
     );
   }
 
-  // check for existing bookings at the same time slot
-  const existingBooking = await prisma.service_booking.findFirst({
+  // -------------------- PREVENT OVERLAPPING BOOKINGS --------------------
+  const existingBookings = await prisma.service_booking.findMany({
     where: {
       serviceId,
       date: data.date,
-      day: data.day,
       bookingStatus: {
         in: [
-          // BookingStatus.PENDING,
-          // BookingStatus.NEED_ACCEPT,
           BookingStatus.CONFIRMED,
+          BookingStatus.NEED_ACCEPT,
         ],
       },
     },
   });
-  if (existingBooking) {
-    throw new ApiError(httpStatus.CONFLICT, "This time slot is already booked");
+
+  const isOverlapping = existingBookings.some((booking: any) => {
+    const existingStart = parseTime(booking.timeSlot.from);
+    const existingEnd = parseTime(booking.timeSlot.to);
+
+    return (
+      requestStart < existingEnd &&
+      requestEnd > existingStart
+    );
+  });
+
+  if (isOverlapping) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "This time slot is already booked",
+    );
   }
 
+  // -------------------- CREATE BOOKING --------------------
   const result = await prisma.service_booking.create({
     data: {
       userId,
       serviceId,
       providerId: findService.providerId,
-      hotelId: findHotel?.id,
+      hotelId: findHotel.id,
       property: data.property,
       serviceName: data.serviceName,
       offeredService: data.offeredService,
       newOfferedService: data.newOfferedService || [],
       date: data.date,
-      day: data.day,
+      day: actualDay,
       timeSlot: data.timeSlot,
       totalPrice: data.totalPrice,
       specialInstructions: data.specialInstructions,
@@ -150,28 +209,28 @@ const createServiceBooking = async (
           id: true,
           serviceName: true,
           serviceType: true,
-          // offered_services: true,
         },
       },
     },
   });
 
-  // ------------send notification to service provider------------
+  // -------------------- SEND NOTIFICATION --------------------
   try {
     const notificationData = {
       bookingId: result.id,
-      userId: result.userId || undefined, // property owner who booked
-      providerId: result.providerId || undefined, // service provider
+      userId: result.userId || undefined,
+      providerId: result.providerId || undefined,
       serviceTypes: "SERVICE" as any,
       serviceName: result.serviceName,
       totalPrice: result.totalPrice,
       serviceId: result.serviceId || undefined,
     };
 
-    await BookingNotificationService.sendBookingNotifications(notificationData);
+    await BookingNotificationService.sendBookingNotifications(
+      notificationData,
+    );
   } catch (notificationError) {
     console.error("Create booking notification failed:", notificationError);
-    // don't fail booking if notification fails
   }
 
   return result;
