@@ -81,7 +81,7 @@ const createHotelReview = async (
   return review;
 };
 
-// create service reviews
+// create service review
 const createServiceReview = async (
   userId: string,
   serviceId: string,
