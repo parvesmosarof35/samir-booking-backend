@@ -434,7 +434,7 @@ const getMyServices = async (
   };
 };
 
-// delete service
+// delete service by id
 const deleteService = async (serviceId: string, providerId: string) => {
   // find user
   const findUser = await prisma.user.findUnique({
