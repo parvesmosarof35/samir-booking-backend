@@ -2,14 +2,12 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 import { ICloudinaryUploadResponse, IUploadedFile } from "../interfaces/file";
 import config from "../config";
 
-// create uploads folder if not exists
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Memory storage
+const storage = multer.memoryStorage();
 
 // allowed file types
 const allowedTypes = [
@@ -77,17 +75,6 @@ const fileFilter = (
   }
 };
 
-// multer disk storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  },
-});
-
 // multer middleware
 const upload = multer({ storage, fileFilter });
 
@@ -124,11 +111,26 @@ cloudinary.config({
 const uploadToCloudinary = async (
   file: IUploadedFile
 ): Promise<ICloudinaryUploadResponse | undefined> => {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(file.path)) {
-      return reject(new Error(`File not found at ${file.path}`));
-    }
+  let fileBuffer = file.buffer;
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
+  if (!fileBuffer) {
+    throw new Error("File buffer not found");
+  }
+
+  // Optimize image if it exceeds 10MB
+  if (file.mimetype.startsWith("image/") && file.size > MAX_SIZE) {
+    try {
+      fileBuffer = await sharp(fileBuffer)
+        .resize({ width: 2000, withoutEnlargement: true })
+        .toFormat("jpeg", { quality: 80 })
+        .toBuffer();
+    } catch (error) {
+      console.error("Image optimization error:", error);
+    }
+  }
+
+  return new Promise((resolve, reject) => {
     // Determine resource type based on MIME type
     let resourceType: "image" | "video" | "raw" = "raw";
 
@@ -137,18 +139,12 @@ const uploadToCloudinary = async (
     } else if (file.mimetype.startsWith("video/")) {
       resourceType = "video";
     } else {
-      resourceType = "raw"; // For PDF, DOCX, XLSX, ZIP, etc.
+      resourceType = "raw";
     }
 
-    cloudinary.uploader.upload(
-      file.path,
+    const uploadStream = cloudinary.uploader.upload_stream(
       { resource_type: resourceType },
       (error, result) => {
-        // Delete local file
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-
         if (error) {
           reject(error);
         } else {
@@ -156,6 +152,8 @@ const uploadToCloudinary = async (
         }
       }
     );
+
+    uploadStream.end(fileBuffer);
   });
 };
 

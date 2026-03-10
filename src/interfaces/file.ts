@@ -3,10 +3,11 @@ export interface IUploadedFile {
   originalname: string;
   encoding: string;
   mimetype: string;
-  destination: string;
-  filename: string;
-  path: string;
+  destination?: string;
+  filename?: string;
+  path?: string;
   size: number;
+  buffer?: Buffer;
 }
 
 export interface ICloudinaryUploadResponse {
