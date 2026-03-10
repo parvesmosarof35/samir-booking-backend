@@ -57,6 +57,16 @@ router.post(
   HotelController.createHotel,
 );
 
+// update hotel category
+router.patch(
+  "/update-category/:hotelId",
+  auth(UserRole.PROPERTY_OWNER),
+  uploadFile.upload.fields([{ name: "subcategoryImage", maxCount: 10 }]),
+  parseBodyData,
+  validateRequest(hotelValidation.updateHotelCategorySchema),
+  HotelController.updateHotelCategory,
+);
+
 // create guard
 router.post(
   "/guard/:hotelId",

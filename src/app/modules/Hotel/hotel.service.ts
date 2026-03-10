@@ -142,8 +142,12 @@ const createHotel = async (req: Request) => {
         const tips = typeof addLocalTips === "string" ? JSON.parse(addLocalTips) : addLocalTips || [];
         let imageIndex = 0;
         return tips.map((tip: any) => {
-          // If Tip specifies it needs an image (either as a placeholder or just sequentially)
-          if (uploadedSubcategoryImages[imageIndex]) {
+          // parse isActive if it's a string
+          if (typeof tip.isActive === "string") {
+            tip.isActive = tip.isActive === "true";
+          }
+
+          if ((!tip.subcategoryImage || tip.subcategoryImage === "new_file") && uploadedSubcategoryImages[imageIndex]) {
             tip.subcategoryImage = uploadedSubcategoryImages[imageIndex++];
           }
           return tip;
@@ -664,7 +668,12 @@ const updateHotel = async (req: Request) => {
         if (!tips) return undefined;
         let imageIndex = 0;
         return tips.map((tip: any) => {
-          if (uploadedSubcategoryImages[imageIndex]) {
+          // parse isActive if it's a string
+          if (typeof tip.isActive === "string") {
+            tip.isActive = tip.isActive === "true";
+          }
+
+          if ((!tip.subcategoryImage || tip.subcategoryImage === "new_file") && uploadedSubcategoryImages[imageIndex]) {
             tip.subcategoryImage = uploadedSubcategoryImages[imageIndex++];
           }
           return tip;
@@ -709,6 +718,65 @@ const updateHotel = async (req: Request) => {
   return updatedHotel;
 };
 
+// update hotel category
+const updateHotelCategory = async (req: Request) => {
+  const hotelId = req.params.hotelId;
+  const partnerId = req.user?.id;
+
+  // check if hotel exists and belongs to this partner
+  const hotelExists = await prisma.hotel.findFirst({
+    where: { id: hotelId, partnerId },
+  });
+  if (!hotelExists) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Hotel not found or unauthorized");
+  }
+
+  const files = req.files as {
+    [fieldname: string]: Express.Multer.File[];
+  };
+
+  // upload subcategory images
+  const subcategoryImages = files?.subcategoryImage || [];
+  const uploadedSubcategoryImages: string[] = [];
+  if (subcategoryImages.length > 0) {
+    const subUploads = await Promise.all(
+      subcategoryImages.map((file) => uploadFile.uploadToCloudinary(file)),
+    );
+    subUploads.forEach((u) => {
+      if (!u?.secure_url) {
+        throw new Error("Cloudinary subcategory upload failed");
+      }
+      uploadedSubcategoryImages.push(u.secure_url);
+    });
+  }
+
+  const { addLocalTips } = req.body;
+
+  const result = await prisma.hotel.update({
+    where: { id: hotelId },
+    data: {
+      addLocalTips: (() => {
+        const tips = typeof addLocalTips === "string" ? JSON.parse(addLocalTips) : addLocalTips;
+        if (!tips) return undefined;
+        let imageIndex = 0;
+        return tips.map((tip: any) => {
+          // parse isActive if it's a string
+          if (typeof tip.isActive === "string") {
+            tip.isActive = tip.isActive === "true";
+          }
+
+          if ((!tip.subcategoryImage || tip.subcategoryImage === "new_file") && uploadedSubcategoryImages[imageIndex]) {
+            tip.subcategoryImage = uploadedSubcategoryImages[imageIndex++];
+          }
+          return tip;
+        });
+      })(),
+    },
+  });
+
+  return result;
+};
+
 // delete hotel
 const deleteHotel = async (hotelId: string, partnerId: string) => {
   // find hotel
@@ -742,5 +810,6 @@ export const HotelService = {
   getAllFavoriteHotels,
   updateHotel,
   deleteHotel,
+  updateHotelCategory,
   createGuard,
 };

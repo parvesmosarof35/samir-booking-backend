@@ -137,6 +137,18 @@ const updateHotel = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// update hotel category
+const updateHotelCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await HotelService.updateHotelCategory(req);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Hotel category updated successfully",
+    data: result,
+  });
+});
+
 // delete hotel
 const deleteHotel = catchAsync(async (req: Request, res: Response) => {
   const hotelId = req.params.hotelId;
@@ -219,6 +231,7 @@ export const HotelController = {
   getAllFavoriteHotels,
   updateHotel,
   deleteHotel,
+  updateHotelCategory,
   createGuard,
   exportHotelIcal,
 };

@@ -130,6 +130,21 @@ const updateHotelSchema = z.object({
   }),
 });
 
+// update hotel category schema
+const updateHotelCategorySchema = z.object({
+  body: z.object({
+    addLocalTips: z.array(
+      z.object({
+        category: z.string().optional(),
+        subcategory: z.string().optional(),
+        subcategoryImage: z.string().optional(),
+        floor_details: z.string().optional(),
+        isActive: z.union([z.boolean(), z.string()]).optional(),
+      })
+    ).optional(),
+  }),
+});
+
 // guard validation schema
 const createGuardSchema = z.object({
   body: z.object({
@@ -148,4 +163,5 @@ export const hotelValidation = {
   customPriceSchema,
   inventoryItemSchema,
   localTipSchema,
+  updateHotelCategorySchema,
 };

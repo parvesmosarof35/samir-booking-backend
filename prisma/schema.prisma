@@ -330,6 +330,7 @@ type LocalTip {
   subcategory   String?
   subcategoryImage String?
   floor_details String?
+  isActive      Boolean @default(true)
 }
 
 model Service {
