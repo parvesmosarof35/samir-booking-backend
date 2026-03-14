@@ -706,8 +706,13 @@ const updateHotel = async (req: Request) => {
         }
         : undefined,
 
-      syncWithAirbnb: String(syncWithAirbnb) === "true" ? true : false,
-      airbnbIcalUrl: airbnbIcalUrl ? airbnbIcalUrl : undefined,
+      syncWithAirbnb:
+        syncWithAirbnb !== undefined
+          ? String(syncWithAirbnb) === "true"
+          : airbnbIcalUrl
+            ? true
+            : undefined,
+      airbnbIcalUrl: airbnbIcalUrl !== undefined ? airbnbIcalUrl : undefined,
     },
     include: {
       customPrices: true,

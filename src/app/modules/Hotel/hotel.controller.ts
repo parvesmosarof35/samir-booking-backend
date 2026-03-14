@@ -124,16 +124,23 @@ const getAllFavoriteHotels = catchAsync(async (req: Request, res: Response) => {
 
 // update hotel
 const updateHotel = catchAsync(async (req: Request, res: Response) => {
-  // const hotelId = req.params.id;
-  // const partnerId = req.user?.id;
-
   const result = await HotelService.updateHotel(req);
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const exportCalendarUrl = `${baseUrl}/api/v1/hotels/${result.id}/calendar.ics`;
+  const syncStatus = result.airbnbIcalUrl && result.syncWithAirbnb ? "active" : "inactive";
+
+  const data = {
+    ...result,
+    exportCalendarUrl,
+    syncStatus,
+  };
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Hotel updated successfully",
-    data: result,
+    data,
   });
 });
 

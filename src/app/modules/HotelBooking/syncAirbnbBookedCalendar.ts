@@ -65,6 +65,27 @@ export const syncAirbnbBookedCalendar = async () => {
           continue;
         }
 
+        // conflict check: overlapping dates
+        // check if there is any other confirmed booking that overlaps with these dates
+        const overlappingAppBooking = await prisma.hotel_Booking.findFirst({
+          where: {
+            hotelId: hotel.id,
+            bookingStatus: BookingStatus.CONFIRMED,
+            bookedFromDate: { lt: bookedToDate },
+            bookedToDate: { gt: bookedFromDate },
+            NOT: {
+              externalBookingId: event.uid,
+            },
+          },
+        });
+
+        if (overlappingAppBooking) {
+          // Conflict detected! Same date e aage theke booking thakle skip korbo.
+          // Because APP er user der priority aage dibo.
+          console.warn(`[Airbnb Sync] Conflict detected for hotel ${hotel.id} on dates ${bookedFromDate} to ${bookedToDate}. Skipping Airbnb booking ${event.uid}.`);
+          continue;
+        }
+
         // create new (airbnb) booking if not exists
         if (!existingBooking) {
           await prisma.hotel_Booking.create({
