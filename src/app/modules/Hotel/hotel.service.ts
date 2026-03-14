@@ -687,7 +687,7 @@ const updateHotel = async (req: Request) => {
       customPrices: customPrices
         ? {
           deleteMany: {},
-          create: JSON.parse(customPrices).map((p: any) => ({
+          create: (typeof customPrices === "string" ? JSON.parse(customPrices) : customPrices).map((p: any) => ({
             startDate: new Date(p.startDate),
             endDate: new Date(p.endDate),
             price: parseFloat(p.price),
@@ -699,7 +699,7 @@ const updateHotel = async (req: Request) => {
       inventoryItems: inventoryItems
         ? {
           deleteMany: {},
-          create: JSON.parse(inventoryItems).map((item: any) => ({
+          create: (typeof inventoryItems === "string" ? JSON.parse(inventoryItems) : inventoryItems).map((item: any) => ({
             name: item.name,
             quantity: item.quantity,
           })),
